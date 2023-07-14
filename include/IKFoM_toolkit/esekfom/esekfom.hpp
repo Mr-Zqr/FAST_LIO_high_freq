@@ -1658,7 +1658,7 @@ public:
 			
 			Matrix<scalar_type, 3, 3> res_temp_SO3;
 			MTK::vect<3, scalar_type> seg_SO3;
-			for (std::vector<std::pair<int, int> >::iterator it = x_.SO3_state.begin(); it != x_.SO3_state.end(); it++) {
+			for (std::vector<std::pair<int, int> >::iterator it = x_.SO3_state.begin(); it != x_.SO3_state.end(); it++) { // 姿态和外参姿态
 				int idx = (*it).first;
 				int dim = (*it).second;
 				for(int i = 0; i < 3; i++){
@@ -1677,7 +1677,7 @@ public:
 
 			Matrix<scalar_type, 2, 2> res_temp_S2;
 			MTK::vect<2, scalar_type> seg_S2;
-			for (std::vector<std::pair<int, int> >::iterator it = x_.S2_state.begin(); it != x_.S2_state.end(); it++) {
+			for (std::vector<std::pair<int, int> >::iterator it = x_.S2_state.begin(); it != x_.S2_state.end(); it++) { // 重力项
 				int idx = (*it).first;
 				int dim = (*it).second;
 				for(int i = 0; i < 2; i++){

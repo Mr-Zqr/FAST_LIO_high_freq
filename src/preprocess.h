@@ -52,8 +52,8 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(velodyne_ros::Point,
     (float, z, z)
     (float, intensity, intensity)
     (float, time, time)
-    (uint16_t, ring, ring)
-);
+    (std::uint16_t, ring, ring)
+)
 
 namespace ouster_ros {
   struct EIGEN_ALIGN16 Point {

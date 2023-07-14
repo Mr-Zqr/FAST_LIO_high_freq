@@ -151,6 +151,30 @@ geometry_msgs::PoseStamped msg_body_pose;
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
 
+// pinocchio variabiles.
+pinocchio::Model model_;
+pinocchio::Data data_;
+Eigen::VectorXd q_;
+pinocchio::Model lleg_model_;
+pinocchio::Data lleg_data_;
+Eigen::VectorXd lleg_q_;
+pinocchio::Model rleg_model_;
+pinocchio::Data rleg_data_;
+Eigen::VectorXd rleg_q_;
+
+enum ContactPoint
+{
+    NONE = 0,
+    LeftFoot,
+    RightFoot,
+    BothFeet
+};
+
+ContactPoint contact = NONE;
+static ContactPoint next_contact;
+static ContactPoint prev_contact;
+static int contact_change_num = 0;
+
 void SigHandle(int sig)
 {
     flg_exit = true;
@@ -786,10 +810,49 @@ void h_share_model(state_ikfom &s, esekfom::dyn_share_datastruct<double> &ekfom_
     solve_time += omp_get_wtime() - solve_start_;
 }
 
+void PinocchioInit()
+{
+    std::vector<std::string> all_joints_name({"floating_base","rhiproll","rfempitch","rtibpitch","rfootpitch","lhiproll","lfempitch","ltibpitch","lfootpitch","rshoulderpitch","lshoulderpitch"});
+    std::vector<std::string> rleg_lock_joints_name({"floating_base","lhiproll","lfempitch","ltibpitch","lfootpitch","rshoulderpitch","lshoulderpitch"});
+    std::vector<std::string> lleg_lock_joints_name({"floating_base","rhiproll","rfempitch","rtibpitch","rfootpitch","rshoulderpitch","lshoulderpitch"});
+    std::vector<pinocchio::JointIndex> rleg_lock_joints_id;
+    std::vector<pinocchio::JointIndex> lleg_lock_joints_id;
+    for(auto& name:rleg_lock_joints_name)
+    {
+      if(model_.existJointName(name))
+        rleg_lock_joints_id.push_back(model_.getJointId(name));
+    }
+    for(auto& name:lleg_lock_joints_name)
+    {
+      if(model_.existJointName(name))
+        lleg_lock_joints_id.push_back(model_.getJointId(name));
+    }
+    lleg_model_ = pinocchio::buildReducedModel(model_, lleg_lock_joints_id, pinocchio::neutral(model_));
+    rleg_model_ = pinocchio::buildReducedModel(model_, rleg_lock_joints_id, pinocchio::neutral(model_));
+    lleg_data_ = pinocchio::Data(lleg_model_);
+    lleg_q_ = pinocchio::neutral(lleg_model_);
+    rleg_data_ = pinocchio::Data(rleg_model_);
+    rleg_q_ = pinocchio::neutral(rleg_model_);
+    pinocchio::forwardKinematics(model_, data_, q_);
+    pinocchio::forwardKinematics(lleg_model_, lleg_data_, lleg_q_);
+    pinocchio::forwardKinematics(rleg_model_, rleg_data_, rleg_q_);
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "laserMapping");
     ros::NodeHandle nh;
+
+    // init pinocchio
+    const std::string urdf_file = "./kuafu.urdf";
+    pinocchio::urdf::buildModel(urdf_file, model_);
+    data_ = pinocchio::Data(model_);
+    q_ = pinocchio::neutral(model_);
+
+    // print ros info that indicates pinocchio init down.
+    cout << "Pinocchio init down, model: nq: " << model_.nq << endl;
+
+    PinocchioInit();
 
     nh.param<bool>("publish/path_en",path_en, true);
     nh.param<bool>("publish/scan_publish_en",scan_pub_en, true);
@@ -1051,7 +1114,57 @@ int main(int argc, char** argv)
                 dump_lio_state_to_log(fp);
             }
         }
+        else 
+        {
+            // if(l_foot_force_buffer.back()->wrench.force.z>150 && r_foot_force_buffer.back()->wrench.force.z>150)
+            // {
+            //     contact = ContactPoint::BothFeet;
+            // }
+            // else
+            // {
+            //     if(l_foot_force_buffer.back()->wrench.force.z > 250)
+            //     {
+            //         contact = ContactPoint::LeftFoot;
+            //     }
+            //     else if(r_foot_force_buffer.back()->wrench.force.z > 250)
+            //     {
+            //         contact = ContactPoint::RightFoot;
+            //     }
+            //     else
+            //     {
+            //         contact = ContactPoint::NONE;
+            //     }
+            // }
+            
+            // // shimiit trigger
+            // if(contact != prev_contact)
+            // {
+            //   if(contact_change_num == 0)
+            //   {
+            //     next_contact = contact;
+            //     contact_change_num++;
+            //   }
+            //   else
+            //   {
+            //     if(contact == next_contact)
+            //     {
+            //       contact_change_num++;
+            //     }
+            //     else
+            //     {
+            //       contact_change_num=0;
+            //     }
+            //   }
+            //   if(contact_change_num > 2)
+            //   {
+            //     prev_contact = contact;
+            //   }
+            // }
 
+            cout << "Num of imu measurements = " << imu_buffer.size() << endl;
+
+
+        }
         status = ros::ok();
         rate.sleep();
     }

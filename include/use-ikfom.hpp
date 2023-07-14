@@ -44,16 +44,17 @@ MTK::get_cov<process_noise_ikfom>::type process_noise_cov()
 
 //double L_offset_to_I[3] = {0.04165, 0.02326, -0.0284}; // Avia 
 //vect3 Lidar_offset_to_IMU(L_offset_to_I, 3);
+// 
 Eigen::Matrix<double, 24, 1> get_f(state_ikfom &s, const input_ikfom &in)
 {
-	Eigen::Matrix<double, 24, 1> res = Eigen::Matrix<double, 24, 1>::Zero();
+	Eigen::Matrix<double, 24, 1> res = Eigen::Matrix<double, 24, 1>::Zero();  // 初始化
 	vect3 omega;
-	in.gyro.boxminus(omega, s.bg);
-	vect3 a_inertial = s.rot * (in.acc-s.ba); 
+	in.gyro.boxminus(omega, s.bg); // 角速度
+	vect3 a_inertial = s.rot * (in.acc-s.ba); // 加速度
 	for(int i = 0; i < 3; i++ ){
 		res(i) = s.vel[i];
 		res(i + 3) =  omega[i]; 
-		res(i + 12) = a_inertial[i] + s.grav[i]; 
+		res(i + 12) = a_inertial[i] + s.grav[i]; // 赋值
 	}
 	return res;
 }
