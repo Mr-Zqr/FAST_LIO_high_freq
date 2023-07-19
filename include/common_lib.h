@@ -10,6 +10,8 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 #include <eigen_conversions/eigen_msg.h>
+#include <geometry_msgs/WrenchStamped.h>
+#include <sensor_msgs/JointState.h>
 
 using namespace std;
 using namespace Eigen;
@@ -63,6 +65,9 @@ struct MeasureGroup     // Lidar data and imu dates for the curent process
     double lidar_end_time;
     PointCloudXYZI::Ptr lidar;
     deque<sensor_msgs::Imu::ConstPtr> imu;
+    deque<sensor_msgs::JointState::ConstPtr> joint_encoder;
+    deque<geometry_msgs::WrenchStamped::ConstPtr> l_f_force;
+    deque<geometry_msgs::WrenchStamped::ConstPtr> r_f_force;
 };
 
 struct StatesGroup
@@ -248,6 +253,7 @@ bool esti_plane(Matrix<T, 4, 1> &pca_result, const PointVector &point, const T &
 
     for (int j = 0; j < NUM_MATCH_POINTS; j++)
     {
+        std::cout << "fabs() = " << fabs(pca_result(0) * point[j].x + pca_result(1) * point[j].y + pca_result(2) * point[j].z + pca_result(3)) << std::endl;
         if (fabs(pca_result(0) * point[j].x + pca_result(1) * point[j].y + pca_result(2) * point[j].z + pca_result(3)) > threshold)
         {
             return false;

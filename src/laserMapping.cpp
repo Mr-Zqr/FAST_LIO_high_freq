@@ -480,6 +480,21 @@ bool sync_packages(MeasureGroup &meas)
     return true;
 }
 
+bool new_force_and_encoder(MeasureGroup &meas)
+{
+    bool has_new_data = false;
+    if (!l_foot_force_buffer.empty() || !r_foot_force_buffer.empty()) {
+        has_new_data = true;
+        meas.l_f_force.insert(meas.l_f_force.end(), l_foot_force_buffer.begin(), l_foot_force_buffer.end());
+        meas.r_f_force.insert(meas.r_f_force.end(), r_foot_force_buffer.begin(), r_foot_force_buffer.end());
+        meas.joint_encoder.insert(meas.joint_encoder.end(), encoder_buffer.begin(), encoder_buffer.end());
+        l_foot_force_buffer.clear();
+        r_foot_force_buffer.clear();
+        encoder_buffer.clear();
+    }
+    return has_new_data;
+}
+
 int process_increments = 0;
 void map_incremental()
 {
@@ -844,13 +859,13 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     // init pinocchio
-    const std::string urdf_file = "./kuafu.urdf";
+    const std::string urdf_file = "/home/zqr/dockeros20zqr/catkin_ws/src/FAST_LIO/src/kuafu.urdf";
     pinocchio::urdf::buildModel(urdf_file, model_);
     data_ = pinocchio::Data(model_);
     q_ = pinocchio::neutral(model_);
 
     // print ros info that indicates pinocchio init down.
-    cout << "Pinocchio init down, model: nq: " << model_.nq << endl;
+    cout << "Pinocchio init down, model: " << model_.name << "nq: " << model_.nq << endl;
 
     PinocchioInit();
 
@@ -960,7 +975,7 @@ int main(int argc, char** argv)
             ("/path", 100000);
 //------------------------------------------------------------------------------------------------------
     signal(SIGINT, SigHandle);
-    ros::Rate rate(5000);
+    ros::Rate rate(2000);
     bool status = ros::ok();
     while (status)
     {
@@ -1114,56 +1129,56 @@ int main(int argc, char** argv)
                 dump_lio_state_to_log(fp);
             }
         }
-        else 
+        else if(new_force_and_encoder(Measures)) 
         {
-            // if(l_foot_force_buffer.back()->wrench.force.z>150 && r_foot_force_buffer.back()->wrench.force.z>150)
-            // {
-            //     contact = ContactPoint::BothFeet;
-            // }
-            // else
-            // {
-            //     if(l_foot_force_buffer.back()->wrench.force.z > 250)
-            //     {
-            //         contact = ContactPoint::LeftFoot;
-            //     }
-            //     else if(r_foot_force_buffer.back()->wrench.force.z > 250)
-            //     {
-            //         contact = ContactPoint::RightFoot;
-            //     }
-            //     else
-            //     {
-            //         contact = ContactPoint::NONE;
-            //     }
-            // }
+            if(Measures.l_f_force.back()->wrench.force.z>150 && Measures.r_f_force.back()->wrench.force.z>150)
+            {
+                contact = ContactPoint::BothFeet;
+            }
+            else
+            {
+                if(Measures.l_f_force.back()->wrench.force.z > 250)
+                {
+                    contact = ContactPoint::LeftFoot;
+                }
+                else if(Measures.r_f_force.back()->wrench.force.z > 250)
+                {
+                    contact = ContactPoint::RightFoot;
+                }
+                else
+                {
+                    contact = ContactPoint::NONE;
+                }
+            }
             
-            // // shimiit trigger
-            // if(contact != prev_contact)
-            // {
-            //   if(contact_change_num == 0)
-            //   {
-            //     next_contact = contact;
-            //     contact_change_num++;
-            //   }
-            //   else
-            //   {
-            //     if(contact == next_contact)
-            //     {
-            //       contact_change_num++;
-            //     }
-            //     else
-            //     {
-            //       contact_change_num=0;
-            //     }
-            //   }
-            //   if(contact_change_num > 2)
-            //   {
-            //     prev_contact = contact;
-            //   }
-            // }
+            // shimiit trigger
+            if(contact != prev_contact)
+            {
+              if(contact_change_num == 0)
+              {
+                next_contact = contact;
+                contact_change_num++;
+              }
+              else
+              {
+                if(contact == next_contact)
+                {
+                  contact_change_num++;
+                }
+                else
+                {
+                  contact_change_num=0;
+                }
+              }
+              if(contact_change_num > 2)
+              {
+                prev_contact = contact;
+              }
+            }
+            // std::cout << "contact: " << contact << std::endl;
 
-            cout << "Num of imu measurements = " << imu_buffer.size() << endl;
-
-
+            // std::cout << "imu buffer size: " << imu_buffer.size() << std::endl;
+           
         }
         status = ros::ok();
         rate.sleep();
