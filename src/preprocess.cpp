@@ -451,7 +451,7 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
       }
     }
     // print the number of points in pl_surf
-    cout<<"pl_surf: "<<pl_surf.points.size()<<endl;
+    // cout<<"pl_surf: "<<pl_surf.points.size()<<endl;
 }
 
 void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &types)

@@ -859,7 +859,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     // init pinocchio
-    const std::string urdf_file = "/home/zqr/dockeros20zqr/catkin_ws/src/FAST_LIO/src/kuafu.urdf";
+    const std::string urdf_file = "/home/zqr/catkin_ws/src/bitbot_kinematics_se/src/kuafu.urdf";
     pinocchio::urdf::buildModel(urdf_file, model_);
     data_ = pinocchio::Data(model_);
     q_ = pinocchio::neutral(model_);
