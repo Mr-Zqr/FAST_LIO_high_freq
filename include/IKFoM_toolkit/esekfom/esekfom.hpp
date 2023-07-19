@@ -1655,7 +1655,7 @@ public:
 			
 			
 			P_ = P_propagated;
-			
+
 			Matrix<scalar_type, 3, 3> res_temp_SO3;
 			MTK::vect<3, scalar_type> seg_SO3;
 			for (std::vector<std::pair<int, int> >::iterator it = x_.SO3_state.begin(); it != x_.SO3_state.end(); it++) { // 姿态和外参姿态

@@ -1176,8 +1176,8 @@ int main(int argc, char** argv)
               }
             }
             // std::cout << "contact: " << contact << std::endl;
-
-            // std::cout << "imu buffer size: " << imu_buffer.size() << std::endl;
+            
+            
            
         }
         status = ros::ok();
