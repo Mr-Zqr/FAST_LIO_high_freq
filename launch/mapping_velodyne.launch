@@ -12,13 +12,13 @@
     <param name="filter_size_map" type="double" value="0.5" />
     <param name="cube_side_length" type="double" value="1000" />
     <param name="runtime_pos_log_enable" type="bool" value="0" />
-    <!-- <node pkg="bitbot_kin_se" type="liko_se" name="laserMapping" output="screen" />  -->
+    <node pkg="bitbot_kin_se" type="liko_se" name="laserMapping" output="screen" /> 
 
     <group if="$(arg rviz)">
     <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find bitbot_kin_se)/rviz_cfg/loam_livox.rviz" />
 	<node pkg="tf" type="static_transform_publisher" name="imu_to_vicon" args="0.1 0.0 0.2 0 0 0 tf_imu2vicon vicon 1" />
     </group>
 
-    <node pkg="rosbag" type="play" name="player" args="/home/zqr/devel/dataset/2023-06-01-16-59-34-full-size.bag" />
+    <!-- <node pkg="rosbag" type="play" name="player" args="/home/zqr/devel/dataset/2023-06-01-16-59-34-full-size.bag" /> -->
 
 </launch>
