@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(fast_lio)
+project(bitbot_kin_se)
 
 SET(CMAKE_BUILD_TYPE "Debug")
 
@@ -85,8 +85,8 @@ catkin_package(
   INCLUDE_DIRS
 )
 
-add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
-target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${pinocchio_LIBRARIES})
-target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS} ${pinocchio_INCLUDE_DIRS})
+add_executable(liko_se src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
+target_link_libraries(liko_se ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${pinocchio_LIBRARIES})
+target_include_directories(liko_se PRIVATE ${PYTHON_INCLUDE_DIRS} ${pinocchio_INCLUDE_DIRS})
 
-target_compile_features(fastlio_mapping PUBLIC cxx_std_11)
+target_compile_features(liko_se PUBLIC cxx_std_11)

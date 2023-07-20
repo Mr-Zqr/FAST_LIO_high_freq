@@ -5,7 +5,7 @@
 #include <Eigen/Eigen>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
-#include <fast_lio/Pose6D.h>
+#include <bitbot_kin_se/Pose6D.h>
 #include <sensor_msgs/Imu.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
@@ -36,7 +36,7 @@ using namespace Eigen;
 #define STD_VEC_FROM_EIGEN(mat)  vector<decltype(mat)::Scalar> (mat.data(), mat.data() + mat.rows() * mat.cols())
 #define DEBUG_FILE_DIR(name)     (string(string(ROOT_DIR) + "Log/"+ name))
 
-typedef fast_lio::Pose6D Pose6D;
+typedef bitbot_kin_se::Pose6D Pose6D;
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
 typedef vector<PointType, Eigen::aligned_allocator<PointType>>  PointVector;
@@ -80,7 +80,6 @@ struct PredictedImuState
     V3D angvel_last;
     V3D acc_s_last;
     V3D angvel_avr, acc_avr, acc_imu, vel_imu, pos_imu;
-    M3D R_imu;
 };
 
 struct StatesGroup

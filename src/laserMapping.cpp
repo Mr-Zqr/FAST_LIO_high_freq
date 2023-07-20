@@ -1023,7 +1023,7 @@ int main(int argc, char** argv)
             svd_time   = 0;
             t0 = omp_get_wtime();
 
-            p_imu->Process(Measures, kf, feats_undistort); // 这里边就做完预测了。
+            p_imu->Process(Measures, kf, feats_undistort, PIS); // 这里边就做完预测了。
             state_point = kf.get_x();
             pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
             // std::cout << "foo/n " << std::endl;
@@ -1248,8 +1248,13 @@ int main(int argc, char** argv)
                     double &&offs_t = tail->header.stamp.toSec() - Measures.lidar_beg_time;
                     PIS.IMUpose.push_back(set_pose6d(offs_t, PIS.acc_s_last, PIS.angvel_last, PIS.imu_state.vel, PIS.imu_state.pos, PIS.imu_state.rot.toRotationMatrix()));
                 }
-            }
+                double note = Measures.lidar_end_time > Measures.imu.back()->header.stamp.toSec() ? 1.0 : -1.0;
+                dt = note * (Measures.lidar_end_time - Measures.imu.back()->header.stamp.toSec());
+                kf.predict(dt, p_imu->Q, in);
 
+                PIS.imu_state = kf.get_x();
+                p_imu->last_lidar_end_time = Measures.lidar_end_time;
+            }
            
         }
         status = ros::ok();
