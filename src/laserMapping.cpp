@@ -101,7 +101,7 @@ double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_en
 int    effct_feat_num = 0, time_log_counter = 0, scan_count = 0, publish_count = 0;
 int    iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudValidNum = 0, pcd_save_interval = -1, pcd_index = 0;
 bool   point_selected_surf[100000] = {0};
-bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited, can_clean_imu = false;
+bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited, can_clean_imu = false, new_imu_meas = false;
 bool   scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;
 
 vector<vector<int>>  pointSearchInd_surf; 
@@ -139,6 +139,7 @@ M3D Lidar_R_wrt_IMU(Eye3d);
 
 /*** EKF inputs and output ***/
 MeasureGroup Measures;
+PredictedImuState PIS;
 esekfom::esekf<state_ikfom, 12, input_ikfom> kf;
 state_ikfom state_point;
 vect3 pos_lid;
@@ -161,6 +162,8 @@ Eigen::VectorXd lleg_q_;
 pinocchio::Model rleg_model_;
 pinocchio::Data rleg_data_;
 Eigen::VectorXd rleg_q_;
+
+int num_predicted_imu_meas = 0;
 
 using namespace std; //DEBUG
 
@@ -430,6 +433,8 @@ int    scan_num = 0;
 bool sync_packages(MeasureGroup &meas)
 {
     /*** push imu data, and pop from imu buffer ***/
+    // ROS_INFO("imu_buffer.size(): %d", int(imu_buffer.size()));
+    // ROS_INFO("meas.imu.size(): %d", int(meas.imu.size()));
     if (can_clean_imu)
     {
         meas.imu.clear();
@@ -445,9 +450,14 @@ bool sync_packages(MeasureGroup &meas)
             imu_time = imu_buffer.front()->header.stamp.toSec();
             // if(imu_time > lidar_end_time) break;
             meas.imu.push_back(imu_buffer.front());
+            new_imu_meas = true;
             imu_buffer.pop_front();
             // std::cout << "in sync loop, meas.imu.size() = " << meas.imu.size() << std::endl;
         }
+    }
+    else
+    {
+        new_imu_meas = false;
     }
 
     if (lidar_buffer.empty()) {
@@ -1143,7 +1153,8 @@ int main(int argc, char** argv)
             }
 
         }
-        else if(new_force_and_encoder(Measures)) 
+        
+        if(new_force_and_encoder(Measures)) 
         {
             if(Measures.l_f_force.back()->wrench.force.z>150 && Measures.r_f_force.back()->wrench.force.z>150)
             {
@@ -1190,6 +1201,55 @@ int main(int argc, char** argv)
               }
             }
             
+            if(new_imu_meas)
+            {
+                PIS.imu_state = kf.get_x();
+                PIS.IMUpose.push_back(set_pose6d(0.0, PIS.acc_s_last, PIS.angvel_last, PIS.imu_state.vel, PIS.imu_state.pos, PIS.imu_state.rot.toRotationMatrix()));
+                double dt = 0;
+                input_ikfom in;
+                for(auto it_imu = (Measures.imu.begin()+num_predicted_imu_meas); it_imu < (Measures.imu.end() - 1); it_imu++)
+                {
+                    auto &&head = *(it_imu);
+                    auto &&tail = *(it_imu+1);
+
+                    // if (tail->header.stamp.toSec() < last_lidar_end_time_)
+                    // {
+                    //     continue;
+                    // }
+                    PIS.angvel_avr << 0.5 * (head->angular_velocity.x + tail->angular_velocity.x),
+                                                0.5 * (head->angular_velocity.y + tail->angular_velocity.y),
+                                                0.5 * (head->angular_velocity.z + tail->angular_velocity.z);
+                    PIS.acc_avr << 0.5 * (head->linear_acceleration.x + tail->linear_acceleration.x),
+                                             0.5 * (head->linear_acceleration.y + tail->linear_acceleration.y),
+                                             0.5 * (head->linear_acceleration.z + tail->linear_acceleration.z);
+                    PIS.acc_avr = PIS.acc_avr * G_m_s2 / p_imu->mean_acc.norm();
+                    if(head->header.stamp.toSec() < p_imu->last_lidar_end_time)
+                    {
+                        dt = tail->header.stamp.toSec() - p_imu->last_lidar_end_time;
+                    }
+                    else 
+                    {
+                        dt = tail->header.stamp.toSec() - head->header.stamp.toSec();
+                    }
+                    in.acc = PIS.acc_avr;
+                    in.gyro = PIS.angvel_avr;
+                    p_imu->Q.block<3, 3>(0, 0).diagonal() = p_imu->cov_gyr;
+                    p_imu->Q.block<3, 3>(3, 3).diagonal() = p_imu->cov_acc;
+                    p_imu->Q.block<3, 3>(6, 6).diagonal() = p_imu->cov_bias_gyr;
+                    p_imu->Q.block<3, 3>(9, 9).diagonal() = p_imu->cov_bias_acc;
+                    kf.predict(dt, p_imu->Q, in);
+                    PIS.imu_state = kf.get_x();
+                    PIS.angvel_last = PIS.angvel_avr - PIS.imu_state.bg;
+                    PIS.acc_s_last = PIS.imu_state.rot*(PIS.acc_avr-PIS.imu_state.ba);
+                    for(int i=0; i<3; i++)
+                    {
+                        PIS.acc_s_last[i] += PIS.imu_state.grav[i];
+                    }
+                    double &&offs_t = tail->header.stamp.toSec() - Measures.lidar_beg_time;
+                    PIS.IMUpose.push_back(set_pose6d(offs_t, PIS.acc_s_last, PIS.angvel_last, PIS.imu_state.vel, PIS.imu_state.pos, PIS.imu_state.rot.toRotationMatrix()));
+                }
+            }
+
            
         }
         status = ros::ok();

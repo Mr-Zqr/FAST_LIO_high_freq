@@ -12,6 +12,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <geometry_msgs/WrenchStamped.h>
 #include <sensor_msgs/JointState.h>
+#include "use-ikfom.hpp"
 
 using namespace std;
 using namespace Eigen;
@@ -68,6 +69,18 @@ struct MeasureGroup     // Lidar data and imu dates for the curent process
     deque<sensor_msgs::JointState::ConstPtr> joint_encoder;
     deque<geometry_msgs::WrenchStamped::ConstPtr> l_f_force;
     deque<geometry_msgs::WrenchStamped::ConstPtr> r_f_force;
+};
+
+struct PredictedImuState
+{
+    state_ikfom imu_state;
+    vector<Pose6D> IMUpose;
+    V3D mean_acc;
+    V3D mean_gyr;
+    V3D angvel_last;
+    V3D acc_s_last;
+    V3D angvel_avr, acc_avr, acc_imu, vel_imu, pos_imu;
+    M3D R_imu;
 };
 
 struct StatesGroup

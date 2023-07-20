@@ -59,6 +59,8 @@ class ImuProcess
   V3D cov_bias_gyr;
   V3D cov_bias_acc;
   double first_lidar_time;
+  double last_lidar_end_time;
+  V3D mean_acc;
 
  private:
   void IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, int &N);
@@ -71,12 +73,11 @@ class ImuProcess
   vector<M3D>    v_rot_pcl_;
   M3D Lidar_R_wrt_IMU;
   V3D Lidar_T_wrt_IMU;
-  V3D mean_acc;
   V3D mean_gyr;
   V3D angvel_last;
   V3D acc_s_last;
   double start_timestamp_;
-  double last_lidar_end_time_;
+  
   int    init_iter_num = 1;
   bool   b_first_frame_ = true;
   bool   imu_need_init_ = true;
@@ -244,7 +245,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     auto &&head = *(it_imu);
     auto &&tail = *(it_imu + 1);
     
-    if (tail->header.stamp.toSec() < last_lidar_end_time_)
+    if (tail->header.stamp.toSec() < last_lidar_end_time)
     {
       continue;
     } 
@@ -260,9 +261,9 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 
     acc_avr     = acc_avr * G_m_s2 / mean_acc.norm(); // - state_inout.ba;
 
-    if(head->header.stamp.toSec() < last_lidar_end_time_)
+    if(head->header.stamp.toSec() < last_lidar_end_time)
     {
-      dt = tail->header.stamp.toSec() - last_lidar_end_time_;
+      dt = tail->header.stamp.toSec() - last_lidar_end_time;
       // dt = tail->header.stamp.toSec() - pcl_beg_time;
     }
     else
@@ -297,7 +298,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   
   imu_state = kf_state.get_x();
   last_imu_ = meas.imu.back();
-  last_lidar_end_time_ = pcl_end_time;
+  last_lidar_end_time = pcl_end_time;
 
   /*** undistort each lidar point (backward propagation) ***/
   if (pcl_out.points.begin() == pcl_out.points.end()) return;
@@ -316,7 +317,6 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     for(; it_pcl->curvature / double(1000) > head->offset_time; it_pcl --)
     {
       dt = it_pcl->curvature / double(1000) - head->offset_time;
-
       /* Transform to the 'end' frame, using only the rotation
        * Note: Compensation direction is INVERSE of Frame's moving direction
        * So if we want to compensate a point at timestamp-i to the frame-e
