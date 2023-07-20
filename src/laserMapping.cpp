@@ -101,7 +101,7 @@ double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_en
 int    effct_feat_num = 0, time_log_counter = 0, scan_count = 0, publish_count = 0;
 int    iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudValidNum = 0, pcd_save_interval = -1, pcd_index = 0;
 bool   point_selected_surf[100000] = {0};
-bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited;
+bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited, can_clean_imu = false;
 bool   scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;
 
 vector<vector<int>>  pointSearchInd_surf; 
@@ -161,6 +161,8 @@ Eigen::VectorXd lleg_q_;
 pinocchio::Model rleg_model_;
 pinocchio::Data rleg_data_;
 Eigen::VectorXd rleg_q_;
+
+using namespace std; //DEBUG
 
 enum ContactPoint
 {
@@ -427,7 +429,28 @@ double lidar_mean_scantime = 0.0;
 int    scan_num = 0;
 bool sync_packages(MeasureGroup &meas)
 {
-    if (lidar_buffer.empty() || imu_buffer.empty()) {
+    /*** push imu data, and pop from imu buffer ***/
+    if (can_clean_imu)
+    {
+        meas.imu.clear();
+        can_clean_imu = false;
+    }
+
+    if (!imu_buffer.empty())
+    {
+        double imu_time = imu_buffer.front()->header.stamp.toSec();
+        
+        while ((!imu_buffer.empty()))
+        {
+            imu_time = imu_buffer.front()->header.stamp.toSec();
+            // if(imu_time > lidar_end_time) break;
+            meas.imu.push_back(imu_buffer.front());
+            imu_buffer.pop_front();
+            // std::cout << "in sync loop, meas.imu.size() = " << meas.imu.size() << std::endl;
+        }
+    }
+
+    if (lidar_buffer.empty()) {
         return false;
     }
 
@@ -461,22 +484,11 @@ bool sync_packages(MeasureGroup &meas)
     {
         return false;
     }
-
-    /*** push imu data, and pop from imu buffer ***/
-    double imu_time = imu_buffer.front()->header.stamp.toSec();
-    meas.imu.clear();
-    while ((!imu_buffer.empty()) && (imu_time < lidar_end_time))
-    {
-        imu_time = imu_buffer.front()->header.stamp.toSec();
-        if(imu_time > lidar_end_time) break;
-        meas.imu.push_back(imu_buffer.front());
-        imu_buffer.pop_front();
-    }
-
-
+    
     lidar_buffer.pop_front();
     time_buffer.pop_front();
     lidar_pushed = false;
+    can_clean_imu = true;
     return true;
 }
 
@@ -975,7 +987,7 @@ int main(int argc, char** argv)
             ("/path", 100000);
 //------------------------------------------------------------------------------------------------------
     signal(SIGINT, SigHandle);
-    ros::Rate rate(2000);
+    ros::Rate rate(5000);
     bool status = ros::ok();
     while (status)
     {
@@ -983,6 +995,7 @@ int main(int argc, char** argv)
         ros::spinOnce();
         if(sync_packages(Measures)) 
         {
+            cout << "----------------------" << endl;
             if (flg_first_scan)
             {
                 first_lidar_time = Measures.lidar_beg_time;
@@ -1128,6 +1141,7 @@ int main(int argc, char** argv)
                 <<" "<<state_point.bg.transpose()<<" "<<state_point.ba.transpose()<<" "<<state_point.grav<<" "<<feats_undistort->points.size()<<endl;
                 dump_lio_state_to_log(fp);
             }
+
         }
         else if(new_force_and_encoder(Measures)) 
         {
@@ -1175,8 +1189,6 @@ int main(int argc, char** argv)
                 prev_contact = contact;
               }
             }
-            // std::cout << "contact: " << contact << std::endl;
-            
             
            
         }
