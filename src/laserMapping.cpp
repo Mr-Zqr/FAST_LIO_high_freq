@@ -1004,7 +1004,6 @@ int main(int argc, char** argv)
         ros::spinOnce();
         if(sync_packages(Measures)) 
         {
-            ROS_INFO("-----------------------packages synced-----------------------");
             if (flg_first_scan)
             {
                 first_lidar_time = Measures.lidar_beg_time;
@@ -1012,8 +1011,6 @@ int main(int argc, char** argv)
                 flg_first_scan = false;
                 continue;
             }
-            ROS_INFO("[main sync]num_predicted_imu_meas: %d", num_predicted_imu_meas);
-            ROS_INFO("[main sync]imu.size(): %d", (int)Measures.imu.size());
             p_imu->PredictImuState(Measures, kf, num_predicted_imu_meas);
             num_predicted_imu_meas = Measures.imu.size();
             double t0,t1,t2,t3,t4,t5,match_start, solve_start, svd_time;
@@ -1161,8 +1158,6 @@ int main(int argc, char** argv)
             {
                 num_predicted_imu_meas = 0;
             }
-            ROS_INFO("[main]num_predicted_imu_meas: %d", num_predicted_imu_meas);
-            ROS_INFO("[main]imu.size(): %d", (int)Measures.imu.size());
             p_imu->PredictImuState(Measures, kf, num_predicted_imu_meas);
             num_predicted_imu_meas = Measures.imu.size();
         }
