@@ -71,15 +71,14 @@ struct MeasureGroup     // Lidar data and imu dates for the curent process
     deque<geometry_msgs::WrenchStamped::ConstPtr> r_f_force;
 };
 
-struct PredictedImuState
+struct Pose6DTemp
 {
-    state_ikfom imu_state;
-    vector<Pose6D> IMUpose;
-    V3D mean_acc;
-    V3D mean_gyr;
-    V3D angvel_last;
-    V3D acc_s_last;
-    V3D angvel_avr, acc_avr, acc_imu, vel_imu, pos_imu;
+    V3D acc_s_last_temp;
+    V3D angvel_last_temp;
+    V3D imu_vel_temp;
+    V3D imu_pos_temp;
+    M3D imu_rot_temp;
+    double imu_time_temp;
 };
 
 struct StatesGroup
