@@ -1096,6 +1096,7 @@ int main(int argc, char** argv)
             }
             p_imu->PredictImuState(Measures, kf, num_predicted_imu_meas);
             num_predicted_imu_meas = Measures.imu.size();
+            state_point = kf.get_x();
             publish_odometry(pubOdomAftMapped);
         }
 
