@@ -4,8 +4,7 @@
 ## Usage
 ```
     cd ~/$A_ROS_DIR$/src
-    git clone https://github.com/hku-mars/FAST_LIO.git
-    git clone https://github.com/Mr-Zqr/FAST_LIO_high_freq.git
+    git clone https://github.com/Mr-Zqr/FAST_LIO_high_freq.git --depth 1
     cd FAST_LIO_high_freq
     git submodule update --init
     cd ../..
