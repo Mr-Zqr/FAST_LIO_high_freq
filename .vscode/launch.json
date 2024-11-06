@@ -13,7 +13,7 @@
             "type": "cppdbg",
             "request": "launch",
             //DepthBasedSeg
-            "program": "/home/zqr/catkin_ws/devel/lib/bitbot_kin_se/liko_se",
+            "program": "/home/zqr/ws_sandbox/devel/lib/bitbot_kin_se/liko_se",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

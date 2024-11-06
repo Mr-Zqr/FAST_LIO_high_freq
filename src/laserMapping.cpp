@@ -32,7 +32,6 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-#include <pinocchio/fwd.hpp>
 #include <omp.h>
 #include <mutex>
 #include <math.h>
@@ -54,8 +53,6 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/JointState.h>
-#include <geometry_msgs/WrenchStamped.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 #include <geometry_msgs/Vector3.h>
@@ -63,11 +60,6 @@
 #include "preprocess.h"
 
 #include <ikd-Tree/ikd_Tree.h>
-#include <pinocchio/parsers/urdf.hpp>
-#include "pinocchio/algorithm/joint-configuration.hpp"
-#include "pinocchio/algorithm/model.hpp"
-#include "pinocchio/algorithm/kinematics.hpp"
-#include "pinocchio/algorithm/center-of-mass.hpp"
 
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
@@ -91,7 +83,7 @@ mutex mtx_buffer;
 condition_variable sig_buffer;
 
 string root_dir = ROOT_DIR;
-string map_file_path, lid_topic, imu_topic, encoder_topic, l_foot_force_topic, r_foot_force_topic;
+string map_file_path, lid_topic, imu_topic;
 
 double res_mean_last = 0.05, total_residual = 0.0;
 double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
@@ -150,17 +142,6 @@ geometry_msgs::PoseStamped msg_body_pose;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
-
-// pinocchio variabiles.
-pinocchio::Model model_;
-pinocchio::Data data_;
-Eigen::VectorXd q_;
-pinocchio::Model lleg_model_;
-pinocchio::Data lleg_data_;
-Eigen::VectorXd lleg_q_;
-pinocchio::Model rleg_model_;
-pinocchio::Data rleg_data_;
-Eigen::VectorXd rleg_q_;
 
 int num_predicted_imu_meas = 0;
 
@@ -683,7 +664,7 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
 {
     odomAftMapped.header.frame_id = "camera_init";
     odomAftMapped.child_frame_id = "body";
-    odomAftMapped.header.stamp = ros::Time().fromSec(lidar_end_time);// ros::Time().fromSec(lidar_end_time);
+    odomAftMapped.header.stamp = ros::Time().now();
     set_posestamp(odomAftMapped.pose);
     pubOdomAftMapped.publish(odomAftMapped);
     auto P = kf.get_P();
@@ -846,49 +827,10 @@ void h_share_model(state_ikfom &s, esekfom::dyn_share_datastruct<double> &ekfom_
     solve_time += omp_get_wtime() - solve_start_;
 }
 
-void PinocchioInit()
-{
-    std::vector<std::string> all_joints_name({"floating_base","rhiproll","rfempitch","rtibpitch","rfootpitch","lhiproll","lfempitch","ltibpitch","lfootpitch","rshoulderpitch","lshoulderpitch"});
-    std::vector<std::string> rleg_lock_joints_name({"floating_base","lhiproll","lfempitch","ltibpitch","lfootpitch","rshoulderpitch","lshoulderpitch"});
-    std::vector<std::string> lleg_lock_joints_name({"floating_base","rhiproll","rfempitch","rtibpitch","rfootpitch","rshoulderpitch","lshoulderpitch"});
-    std::vector<pinocchio::JointIndex> rleg_lock_joints_id;
-    std::vector<pinocchio::JointIndex> lleg_lock_joints_id;
-    for(auto& name:rleg_lock_joints_name)
-    {
-      if(model_.existJointName(name))
-        rleg_lock_joints_id.push_back(model_.getJointId(name));
-    }
-    for(auto& name:lleg_lock_joints_name)
-    {
-      if(model_.existJointName(name))
-        lleg_lock_joints_id.push_back(model_.getJointId(name));
-    }
-    lleg_model_ = pinocchio::buildReducedModel(model_, lleg_lock_joints_id, pinocchio::neutral(model_));
-    rleg_model_ = pinocchio::buildReducedModel(model_, rleg_lock_joints_id, pinocchio::neutral(model_));
-    lleg_data_ = pinocchio::Data(lleg_model_);
-    lleg_q_ = pinocchio::neutral(lleg_model_);
-    rleg_data_ = pinocchio::Data(rleg_model_);
-    rleg_q_ = pinocchio::neutral(rleg_model_);
-    pinocchio::forwardKinematics(model_, data_, q_);
-    pinocchio::forwardKinematics(lleg_model_, lleg_data_, lleg_q_);
-    pinocchio::forwardKinematics(rleg_model_, rleg_data_, rleg_q_);
-}
-
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "laserMapping");
     ros::NodeHandle nh;
-
-    // init pinocchio
-    const std::string urdf_file = "/home/zqr/catkin_ws/src/bitbot_kinematics_se/src/kuafu.urdf";
-    pinocchio::urdf::buildModel(urdf_file, model_);
-    data_ = pinocchio::Data(model_);
-    q_ = pinocchio::neutral(model_);
-
-    // print ros info that indicates pinocchio init down.
-    cout << "Pinocchio init down, model: " << model_.name << "nq: " << model_.nq << endl;
-
-    PinocchioInit();
 
     nh.param<bool>("publish/path_en",path_en, true);
     nh.param<bool>("publish/scan_publish_en",scan_pub_en, true);
@@ -898,9 +840,6 @@ int main(int argc, char** argv)
     nh.param<string>("map_file_path",map_file_path,"");
     nh.param<string>("common/lid_topic",lid_topic,"/livox/lidar");
     nh.param<string>("common/imu_topic", imu_topic,"/livox/imu");
-    nh.param<string>("common/encoder_topic", encoder_topic,"/bitbot/joint_state");
-    nh.param<string>("common/l_foot_force", l_foot_force_topic,"/bitbot/l_foot_force");
-    nh.param<string>("common/r_foot_force", r_foot_force_topic,"/bitbot/r_foot_force");
     nh.param<bool>("common/time_sync_en", time_sync_en, false);
     nh.param<double>("common/time_offset_lidar_to_imu", time_diff_lidar_to_imu, 0.0);
     nh.param<double>("filter_size_corner",filter_size_corner_min,0.5);
@@ -979,9 +918,6 @@ int main(int argc, char** argv)
         nh.subscribe(lid_topic, 200000, livox_pcl_cbk) : \
         nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
     ros::Subscriber sub_imu = nh.subscribe(imu_topic, 200000, imu_cbk);
-    ros::Subscriber sub_encoder = nh.subscribe(encoder_topic, 200000, encoder_cbk);
-    ros::Subscriber sub_lfootf = nh.subscribe(l_foot_force_topic, 200000, l_foot_force_cbk);
-    ros::Subscriber sub_rfootf = nh.subscribe(r_foot_force_topic, 200000, r_foot_force_cbk);
     ros::Publisher pubLaserCloudFull = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_registered", 100000);
     ros::Publisher pubLaserCloudFull_body = nh.advertise<sensor_msgs::PointCloud2>
@@ -1160,55 +1096,9 @@ int main(int argc, char** argv)
             }
             p_imu->PredictImuState(Measures, kf, num_predicted_imu_meas);
             num_predicted_imu_meas = Measures.imu.size();
+            publish_odometry(pubOdomAftMapped);
         }
 
-        if(new_force_and_encoder(Measures)) 
-        {
-            if(Measures.l_f_force.back()->wrench.force.z>150 && Measures.r_f_force.back()->wrench.force.z>150)
-            {
-                contact = ContactPoint::BothFeet;
-            }
-            else
-            {
-                if(Measures.l_f_force.back()->wrench.force.z > 250)
-                {
-                    contact = ContactPoint::LeftFoot;
-                }
-                else if(Measures.r_f_force.back()->wrench.force.z > 250)
-                {
-                    contact = ContactPoint::RightFoot;
-                }
-                else
-                {
-                    contact = ContactPoint::NONE;
-                }
-            }
-            
-            // shimiit trigger
-            if(contact != prev_contact)
-            {
-              if(contact_change_num == 0)
-              {
-                next_contact = contact;
-                contact_change_num++;
-              }
-              else
-              {
-                if(contact == next_contact)
-                {
-                  contact_change_num++;
-                }
-                else
-                {
-                  contact_change_num=0;
-                }
-              }
-              if(contact_change_num > 2)
-              {
-                prev_contact = contact;
-              }
-            }           
-        }
         status = ros::ok();
         rate.sleep();
     }
