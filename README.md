@@ -1,3 +1,18 @@
+- This repo is a high frequency version of the original FAST-LIO2. The high frequency property is achieved by predicting the state in real time with every new IMU data, instead of buffering them and make prediction when new LiDAR data arrives (which is the implementation of the original FAST-LIO2).
+- **WARNING:** Since the odometry state between LiDAR updates are done by purely integrating the IMU, published state might appear jittering compared to the original FAST-LIO2. Please **make tests** before integrating this repo into your production environment!
+
+## Usage
+```
+    cd ~/$A_ROS_DIR$/src
+    git clone https://github.com/hku-mars/FAST_LIO.git
+    git clone https://github.com/Mr-Zqr/FAST_LIO_high_freq.git
+    cd FAST_LIO_high_freq
+    git submodule update --init
+    cd ../..
+    catkin_make
+    source devel/setup.bash
+```
+---
 ## Related Works and Extended Application
 
 **SLAM:**
